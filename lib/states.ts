@@ -82,4 +82,5 @@ export interface Story {
   emoji: string;
   teaser: string;
   time: string;
+  url?: string;
 }

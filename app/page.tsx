@@ -1,11 +1,8 @@
 "use client";
 // app/page.tsx
 import { useState, useEffect } from "react";
-import LocationPicker from "@/components/LocationPicker";
 import StoryCard from "@/components/StoryCard";
-import { Story, US_STATES } from "@/lib/states";
-
-const DEFAULT_STATE = "TX";
+import { Story } from "@/lib/states";
 
 const TICKER_ITEMS = [
   "BREAKING: Local man discovers third arm, unsure what to do with it",
@@ -26,8 +23,16 @@ const FALLBACK_STORIES: Story[] = [
   { id: 6, headline: "Area Seagull Named 'Kevin' Wins Third Consecutive Hot Dog Eating Contest", location: "Truth or Consequences, NM", category: "Animal Chaos", emoji: "🐦", teaser: "Officials reviewing contest rules after Kevin allegedly organized a cartel of gulls.", time: "8h ago" },
 ];
 
+const LOADING_MESSAGES = [
+  "Scanning police scanners across America...",
+  "Bribing local tipsters...",
+  "Combing through town hall minutes...",
+  "Following up on animal-related leads...",
+  "Cross-referencing bake sale receipts...",
+  "Verifying the unverifiable...",
+];
+
 export default function Home() {
-  const [selectedState, setSelectedState] = useState(DEFAULT_STATE);
   const [stories, setStories] = useState<Story[]>(FALLBACK_STORIES);
   const [loading, setLoading] = useState(false);
   const [loadingMsg, setLoadingMsg] = useState("");
@@ -35,37 +40,26 @@ export default function Home() {
   const [initialized, setInitialized] = useState(false);
 
   const dateStr = new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
-  const stateName = US_STATES.find((s) => s.abbr === selectedState)?.name || selectedState;
 
-  const loadingMessages = [
-    `Scanning ${stateName} police scanners...`,
-    "Bribing local tipsters...",
-    "Combing through town hall minutes...",
-    `Following up on ${stateName} animal leads...`,
-    "Cross-referencing bake sale receipts...",
-    "Verifying the unverifiable...",
-  ];
-
-  async function fetchStories(stateAbbr: string, refresh = false) {
+  async function fetchStories(refresh = false) {
     setLoading(true);
     setError("");
     let msgIdx = 0;
-    setLoadingMsg(loadingMessages[0]);
+    setLoadingMsg(LOADING_MESSAGES[0]);
     const interval = setInterval(() => {
-      msgIdx = (msgIdx + 1) % loadingMessages.length;
-      setLoadingMsg(loadingMessages[msgIdx]);
+      msgIdx = (msgIdx + 1) % LOADING_MESSAGES.length;
+      setLoadingMsg(LOADING_MESSAGES[msgIdx]);
     }, 1400);
 
     try {
-      const url = `/api/stories?state=${stateAbbr}${refresh ? "&refresh=1" : ""}`;
-      const res = await fetch(url);
+      const res = await fetch(`/api/stories${refresh ? "?refresh=1" : ""}`);
       const data = await res.json();
       if (data.stories && Array.isArray(data.stories)) {
         setStories(data.stories);
       } else {
         throw new Error(data.error || "No stories returned");
       }
-    } catch (e) {
+    } catch {
       setError("Couldn't reach the newswire. Showing archive stories.");
       setStories(FALLBACK_STORIES);
     } finally {
@@ -74,18 +68,12 @@ export default function Home() {
     }
   }
 
-  // Fetch on mount with default or detected state
   useEffect(() => {
     if (!initialized) {
       setInitialized(true);
-      fetchStories(selectedState);
+      fetchStories();
     }
   }, []);
-
-  function handleStateChange(abbr: string) {
-    setSelectedState(abbr);
-    fetchStories(abbr);
-  }
 
   const featured = stories[0];
   const rest = stories.slice(1);
@@ -98,7 +86,7 @@ export default function Home() {
         body { background: #faf8f3; }
         .ticker-track { white-space: nowrap; animation: scroll-left 35s linear infinite; }
         @keyframes scroll-left { from { transform: translateX(100%); } to { transform: translateX(-100%); } }
-        select:focus, button:focus { outline: 2px solid #1a1a1a; outline-offset: 2px; }
+        button:focus { outline: 2px solid #1a1a1a; outline-offset: 2px; }
         @media (max-width: 600px) {
           .story-grid { grid-template-columns: 1fr !important; }
           .masthead-title { font-size: 56px !important; }
@@ -124,9 +112,8 @@ export default function Home() {
         <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: "italic", fontSize: 15, margin: "4px 0 6px", opacity: 0.65 }}>
           "All the news that's fit to be baffled by"
         </p>
-        {/* State badge under tagline */}
         <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#1a1a1a", color: "#faf8f3", padding: "4px 14px", fontFamily: "sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", marginBottom: 8 }}>
-          📍 {stateName.toUpperCase()} EDITION
+          🇺🇸 US EDITION
         </div>
         <div style={{ fontFamily: "sans-serif", letterSpacing: "0.3em", fontSize: 10, opacity: 0.4, marginBottom: 8 }}>
           ✦ ✦ ✦ ✦ ✦ ✦ ✦ ✦ ✦ ✦ ✦ ✦ ✦ ✦ ✦
@@ -147,61 +134,54 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Location + refresh bar */}
-      <div style={{ background: "#f0ede4", borderBottom: "1px solid #d4cfc0", padding: "10px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-        <LocationPicker currentState={selectedState} onStateChange={handleStateChange} />
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          {loading ? (
-            <span style={{ fontFamily: "sans-serif", fontSize: 11, opacity: 0.6, fontStyle: "italic" }}>{loadingMsg}</span>
-          ) : error ? (
-            <span style={{ fontFamily: "sans-serif", fontSize: 11, color: "#c0392b" }}>{error}</span>
-          ) : (
-            <span style={{ fontFamily: "sans-serif", fontSize: 11, opacity: 0.5 }}>📡 {stateName} newswire live</span>
-          )}
-          <button
-            onClick={() => fetchStories(selectedState, true)}
-            disabled={loading}
-            style={{
-              fontFamily: "sans-serif",
-              fontSize: 11,
-              fontWeight: 700,
-              letterSpacing: "0.1em",
-              textTransform: "uppercase",
-              border: "1.5px solid #1a1a1a",
-              background: loading ? "#d4cfc0" : "#faf8f3",
-              color: loading ? "#888" : "#1a1a1a",
-              padding: "5px 14px",
-              cursor: loading ? "not-allowed" : "pointer",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {loading ? "Scanning..." : "↻ Refresh"}
-          </button>
-        </div>
+      {/* Refresh bar */}
+      <div style={{ background: "#f0ede4", borderBottom: "1px solid #d4cfc0", padding: "10px 20px", display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 12 }}>
+        {loading ? (
+          <span style={{ fontFamily: "sans-serif", fontSize: 11, opacity: 0.6, fontStyle: "italic" }}>{loadingMsg}</span>
+        ) : error ? (
+          <span style={{ fontFamily: "sans-serif", fontSize: 11, color: "#c0392b" }}>{error}</span>
+        ) : (
+          <span style={{ fontFamily: "sans-serif", fontSize: 11, opacity: 0.5 }}>📡 US newswire live</span>
+        )}
+        <button
+          onClick={() => fetchStories(true)}
+          disabled={loading}
+          style={{
+            fontFamily: "sans-serif",
+            fontSize: 11,
+            fontWeight: 700,
+            letterSpacing: "0.1em",
+            textTransform: "uppercase",
+            border: "1.5px solid #1a1a1a",
+            background: loading ? "#d4cfc0" : "#faf8f3",
+            color: loading ? "#888" : "#1a1a1a",
+            padding: "5px 14px",
+            cursor: loading ? "not-allowed" : "pointer",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {loading ? "Scanning..." : "↻ Refresh"}
+        </button>
       </div>
 
       {/* Main content */}
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "28px 20px 48px" }}>
-
         {loading ? (
           <div style={{ textAlign: "center", padding: "60px 20px", opacity: 0.5 }}>
-            <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, marginBottom: 12 }}>Combing the {stateName} newswire...</div>
+            <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, marginBottom: 12 }}>Combing the American newswire...</div>
             <p style={{ fontFamily: "sans-serif", fontSize: 13, fontStyle: "italic" }}>{loadingMsg}</p>
           </div>
         ) : (
           <>
-            {/* Featured */}
             {featured && <StoryCard story={featured} featured />}
 
-            {/* Divider */}
             <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 24 }}>
-              <div style={{ fontFamily: "sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.3em", textTransform: "uppercase", opacity: 0.4, whiteSpace: "nowrap" }}>More From {stateName}</div>
+              <div style={{ fontFamily: "sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.3em", textTransform: "uppercase", opacity: 0.4, whiteSpace: "nowrap" }}>More From America</div>
               <div style={{ flex: 1, height: 1, background: "#1a1a1a", opacity: 0.15 }} />
               <div style={{ fontFamily: "sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", opacity: 0.4, whiteSpace: "nowrap" }}>{dateStr}</div>
               <div style={{ flex: 1, height: 1, background: "#1a1a1a", opacity: 0.15 }} />
             </div>
 
-            {/* Story grid */}
             <div className="story-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 20 }}>
               {rest.map((story) => (
                 <StoryCard key={story.id} story={story} />
@@ -214,7 +194,7 @@ export default function Home() {
         <div style={{ marginTop: 48, borderTop: "4px double #1a1a1a", paddingTop: 20, textAlign: "center" }}>
           <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 28, fontWeight: 900, margin: "0 0 6px" }}>todayday!</p>
           <p style={{ fontFamily: "sans-serif", fontSize: 11, opacity: 0.4, letterSpacing: "0.12em" }}>
-            ALL STORIES ARE SATIRICAL & AI-GENERATED · NO REAL PEOPLE WERE HARMED OR QUOTED
+            ALL STORIES ARE REAL · CURATED FOR MAXIMUM ABSURDITY
           </p>
           <p style={{ fontFamily: "sans-serif", fontSize: 10, opacity: 0.25, marginTop: 6 }}>
             © {new Date().getFullYear()} todayday! Publications · A Weird Little Website

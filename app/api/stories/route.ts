@@ -1,7 +1,7 @@
 // app/api/stories/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import Groq from "groq-sdk";
-import { STATE_MAP, getCacheKey, getFromCache, setInCache, Story } from "@/lib/states";
+import { getCacheKey, getFromCache, setInCache, Story } from "@/lib/states";
 
 const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
@@ -16,71 +16,93 @@ const CATEGORIES = [
   "Sports Catastrophe",
 ];
 
-function buildPrompt(stateAbbr: string): string {
-  const state = STATE_MAP[stateAbbr];
-  if (!state) throw new Error("Invalid state");
+interface NewsArticle {
+  title: string;
+  description: string;
+  url: string;
+  source: string;
+  publishedAt: string;
+}
 
-  const today = new Date().toLocaleDateString("en-US", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
+async function fetchUSNews(): Promise<NewsArticle[]> {
+  const apiKey = process.env.NEWS_API_KEY;
+  const res = await fetch(
+    `https://newsapi.org/v2/top-headlines?country=us&pageSize=60&apiKey=${apiKey}`
+  );
+  const data = await res.json();
+  if (!Array.isArray(data.articles)) return [];
+  return data.articles
+    .filter((a: { title?: string; description?: string; url?: string }) => a.title && a.description && a.url)
+    .map((a: { title: string; description: string; url: string; source?: { name?: string }; publishedAt: string }) => ({
+      title: a.title,
+      description: a.description,
+      url: a.url,
+      source: a.source?.name ?? "Unknown",
+      publishedAt: a.publishedAt,
+    }));
+}
 
-  return `You are the editor of "todayday!" — a satirical fake-but-plausible local news aggregator focused on ${state.name}.
+function buildPrompt(articles: NewsArticle[]): string {
+  const articleList = articles
+    .map((a, i) => `[${i}] "${a.title}" — ${a.description} (${a.source}, ${a.publishedAt})`)
+    .join("\n");
 
-Generate 6 funny, weird, absurdist LOCAL news stories specifically set in ${state.name}. Lean into the real culture and quirks of ${state.name}: ${state.quirks}.
+  return `You are the editor of "todayday!" — a curator of the funniest, weirdest, and most absurd real news stories from the US.
 
-Use real-sounding but fictional small town names from ${state.name} (or funny real ones if they exist). Each story should feel rooted in ${state.name}'s specific culture, geography, weather, food, politics, or people — not generic.
+Below are real US news articles. Pick the 10 that are funniest, weirdest, most absurd, or most unbelievably real. Prefer stories that are bizarre, quirky, or make you say "only in America."
 
-Today is ${today}.
+Articles:
+${articleList}
 
 Respond ONLY with a raw JSON array. No markdown fences, no explanation, no preamble. Each object must have exactly these fields:
-- id: number 1–6
-- headline: string (punchy, weird, funny — reads like a real local news headline)
-- location: string (a small town or city in ${state.name}, format: "Town, ${state.abbr}")
+- id: number 1–10
+- articleIndex: number (the [index] from the list above — this is critical, do not guess)
+- headline: string (use the REAL headline; you may tighten it slightly for punch)
+- location: string (extract the city/state from the article if possible, otherwise "United States"; format: "City, ST" or "United States")
 - category: one of exactly: ${CATEGORIES.join(", ")}
 - emoji: one relevant emoji character
-- teaser: string (one funny sentence that expands on the headline without resolving it)
-- time: string (like "just now", "1h ago", "3h ago", "5h ago", "7h ago", "9h ago")
-
-Make the headlines genuinely funny and surprising — specific to ${state.name} culture. Avoid generic headlines that could happen anywhere.`;
+- teaser: string (one punchy sentence summarizing why this story is absurd or funny — grounded in the real story)
+- time: string (relative time from publishedAt — e.g. "just now", "2h ago", "1d ago", "3d ago")`;
 }
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const stateAbbr = (searchParams.get("state") || "").toUpperCase();
   const forceRefresh = searchParams.get("refresh") === "1";
 
-  if (!STATE_MAP[stateAbbr]) {
-    return NextResponse.json({ error: "Invalid state abbreviation" }, { status: 400 });
-  }
+  const cacheKey = getCacheKey("US");
 
-  const cacheKey = getCacheKey(stateAbbr);
-
-  // Serve from cache unless forced refresh
   if (!forceRefresh) {
     const cached = getFromCache(cacheKey);
     if (cached) {
-      return NextResponse.json({ stories: cached.stories, cached: true, generatedAt: cached.generatedAt, state: STATE_MAP[stateAbbr] });
+      return NextResponse.json({ stories: cached.stories, cached: true, generatedAt: cached.generatedAt });
     }
   }
 
   try {
+    const articles = await fetchUSNews();
+
+    if (articles.length < 10) {
+      return NextResponse.json({ error: "Not enough news articles found" }, { status: 502 });
+    }
+
     const message = await client.chat.completions.create({
       model: "llama-3.3-70b-versatile",
-      max_tokens: 1200,
-      messages: [{ role: "user", content: buildPrompt(stateAbbr) }],
+      max_tokens: 2500,
+      messages: [{ role: "user", content: buildPrompt(articles) }],
     });
 
     const text = message.choices[0]?.message?.content ?? "";
-
     const clean = text.replace(/```json|```/g, "").trim();
-    const stories: Story[] = JSON.parse(clean);
+    const raw: (Story & { articleIndex?: number })[] = JSON.parse(clean);
 
-    if (!Array.isArray(stories) || stories.length === 0) {
+    if (!Array.isArray(raw) || raw.length === 0) {
       throw new Error("Invalid story format returned");
     }
+
+    const stories: Story[] = raw.map(({ articleIndex, ...story }) => ({
+      ...story,
+      url: articleIndex !== undefined ? articles[articleIndex]?.url : undefined,
+    }));
 
     setInCache(cacheKey, stories);
 
@@ -88,7 +110,6 @@ export async function GET(req: NextRequest) {
       stories,
       cached: false,
       generatedAt: new Date().toISOString(),
-      state: STATE_MAP[stateAbbr],
     });
   } catch (err) {
     console.error("Story generation error:", err);

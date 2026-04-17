@@ -43,10 +43,11 @@ export default function StoryCard({ story, featured = false }: { story: Story; f
             <p style={{ fontFamily: "'Source Serif 4', serif", fontSize: 17, lineHeight: 1.65, margin: 0, opacity: 0.75 }}>
               {story.teaser}
             </p>
-            {expanded && (
-              <div style={{ marginTop: 16, padding: 16, background: "#f0ede4", borderLeft: `3px solid ${color}`, fontFamily: "'Source Serif 4', serif", fontSize: 15, lineHeight: 1.8, opacity: 0.85 }}>
-                <span style={{ background: color, color: "#fff", fontFamily: "sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.2em", padding: "3px 8px", marginRight: 10 }}>DEVELOPING</span>
-                Reporters on the ground in {story.location} continue to follow developments. Sources describe the situation as "ongoing" and "genuinely hard to explain." Local officials declined to comment, citing an ongoing investigation. Neighbors were unsurprised.
+            {expanded && story.url && (
+              <div style={{ marginTop: 16, padding: 16, background: "#f0ede4", borderLeft: `3px solid ${color}` }}>
+                <a href={story.url} target="_blank" rel="noopener noreferrer" style={{ fontFamily: "sans-serif", fontSize: 13, fontWeight: 700, color, textDecoration: "none", letterSpacing: "0.05em" }}>
+                  Read full story →
+                </a>
               </div>
             )}
           </div>
@@ -85,9 +86,11 @@ export default function StoryCard({ story, featured = false }: { story: Story; f
       <p style={{ fontFamily: "'Source Serif 4', serif", fontSize: 14, lineHeight: 1.6, margin: "0 0 12px", opacity: 0.7 }}>
         {story.teaser}
       </p>
-      {expanded && (
-        <div style={{ padding: 12, background: "#faf8f3", borderLeft: `2px solid ${color}`, marginBottom: 12, fontFamily: "'Source Serif 4', serif", fontSize: 13, lineHeight: 1.8, opacity: 0.8 }}>
-          Residents of {story.location} are still processing events. A GoFundMe has reportedly been started, though its stated purpose remains unclear. Officials released a statement calling the incident "unprecedented in recent memory."
+      {expanded && story.url && (
+        <div style={{ padding: 12, background: "#faf8f3", borderLeft: `2px solid ${color}`, marginBottom: 12 }}>
+          <a href={story.url} target="_blank" rel="noopener noreferrer" style={{ fontFamily: "sans-serif", fontSize: 12, fontWeight: 700, color, textDecoration: "none", letterSpacing: "0.05em" }}>
+            Read full story →
+          </a>
         </div>
       )}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid #e8e4da", paddingTop: 10 }}>
