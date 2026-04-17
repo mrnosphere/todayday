@@ -14,6 +14,46 @@ const CATEGORY_COLORS: Record<string, string> = {
   "Sports Catastrophe": "#c0392b",
 };
 
+function ShareButton({ headline, url, color }: { headline: string; url?: string; color: string }) {
+  const [copied, setCopied] = useState(false);
+  const siteUrl = "https://todayday.vercel.app";
+  const shareText = `"${headline}" 😂 via todayday!`;
+  const shareUrl = url || siteUrl;
+
+  function handleShare(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (navigator.share) {
+      navigator.share({ title: headline, text: shareText, url: shareUrl });
+    } else {
+      navigator.clipboard.writeText(`${shareText}\n${shareUrl}`).then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      });
+    }
+  }
+
+  const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`;
+
+  return (
+    <div style={{ display: "flex", gap: 6, alignItems: "center" }} onClick={(e) => e.stopPropagation()}>
+      <a
+        href={twitterUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{ fontFamily: "sans-serif", fontSize: 11, fontWeight: 700, color, textDecoration: "none", padding: "3px 8px", border: `1px solid ${color}`, letterSpacing: "0.05em" }}
+      >
+        𝕏 Share
+      </a>
+      <button
+        onClick={handleShare}
+        style={{ fontFamily: "sans-serif", fontSize: 11, fontWeight: 700, color: "#1a1a1a", background: "transparent", border: "1px solid #d4cfc0", padding: "3px 8px", cursor: "pointer", letterSpacing: "0.05em" }}
+      >
+        {copied ? "✓ Copied!" : "⎘ Copy"}
+      </button>
+    </div>
+  );
+}
+
 export default function StoryCard({ story, featured = false }: { story: Story; featured?: boolean }) {
   const [expanded, setExpanded] = useState(false);
   const color = CATEGORY_COLORS[story.category] || "#888";
@@ -22,12 +62,7 @@ export default function StoryCard({ story, featured = false }: { story: Story; f
     return (
       <div
         onClick={() => setExpanded(!expanded)}
-        style={{
-          borderBottom: "2px solid #1a1a1a",
-          marginBottom: 28,
-          paddingBottom: 24,
-          cursor: "pointer",
-        }}
+        style={{ borderBottom: "2px solid #1a1a1a", marginBottom: 28, paddingBottom: 24, cursor: "pointer" }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
           <div style={{ width: 3, height: 18, background: color }} />
@@ -36,20 +71,21 @@ export default function StoryCard({ story, featured = false }: { story: Story; f
         </div>
         <div style={{ display: "flex", gap: 20, alignItems: "flex-start" }}>
           <div style={{ fontSize: "clamp(48px, 8vw, 72px)", lineHeight: 1, flexShrink: 0 }}>{story.emoji}</div>
-          <div>
+          <div style={{ flex: 1 }}>
             <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: "clamp(26px, 4vw, 42px)", fontWeight: 900, margin: "0 0 10px", lineHeight: 1.1 }}>
               {story.headline}
             </h2>
-            <p style={{ fontFamily: "'Source Serif 4', serif", fontSize: 17, lineHeight: 1.65, margin: 0, opacity: 0.75 }}>
+            <p style={{ fontFamily: "'Source Serif 4', serif", fontSize: 17, lineHeight: 1.65, margin: "0 0 14px", opacity: 0.75 }}>
               {story.teaser}
             </p>
-            {expanded && story.url && (
-              <div style={{ marginTop: 16, padding: 16, background: "#f0ede4", borderLeft: `3px solid ${color}` }}>
-                <a href={story.url} target="_blank" rel="noopener noreferrer" style={{ fontFamily: "sans-serif", fontSize: 13, fontWeight: 700, color, textDecoration: "none", letterSpacing: "0.05em" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+              <ShareButton headline={story.headline} url={story.url} color={color} />
+              {story.url && (
+                <a href={story.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ fontFamily: "sans-serif", fontSize: 11, fontWeight: 700, color, textDecoration: "none", letterSpacing: "0.05em" }}>
                   Read full story →
                 </a>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -86,11 +122,14 @@ export default function StoryCard({ story, featured = false }: { story: Story; f
       <p style={{ fontFamily: "'Source Serif 4', serif", fontSize: 14, lineHeight: 1.6, margin: "0 0 12px", opacity: 0.7 }}>
         {story.teaser}
       </p>
-      {expanded && story.url && (
-        <div style={{ padding: 12, background: "#faf8f3", borderLeft: `2px solid ${color}`, marginBottom: 12 }}>
-          <a href={story.url} target="_blank" rel="noopener noreferrer" style={{ fontFamily: "sans-serif", fontSize: 12, fontWeight: 700, color, textDecoration: "none", letterSpacing: "0.05em" }}>
-            Read full story →
-          </a>
+      {expanded && (
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderTop: "1px solid #e8e4da", marginBottom: 8, flexWrap: "wrap" }}>
+          <ShareButton headline={story.headline} url={story.url} color={color} />
+          {story.url && (
+            <a href={story.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ fontFamily: "sans-serif", fontSize: 11, fontWeight: 700, color, textDecoration: "none", letterSpacing: "0.05em" }}>
+              Read full story →
+            </a>
+          )}
         </div>
       )}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid #e8e4da", paddingTop: 10 }}>
