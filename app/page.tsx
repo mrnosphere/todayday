@@ -1,8 +1,11 @@
 "use client";
 // app/page.tsx
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import StoryCard from "@/components/StoryCard";
 import { Story } from "@/lib/states";
+
+const MAX_ARCHIVE_BATCHES = 20;
 
 const FALLBACK_TICKER = [
   "BREAKING: Local man discovers third arm, unsure what to do with it",
@@ -58,6 +61,17 @@ export default function Home() {
       if (data.stories && Array.isArray(data.stories)) {
         setStories(data.stories);
         setTickerItems(data.stories.map((s: Story) => `${s.emoji} ${s.headline.toUpperCase()} · ${s.location}`));
+        // Save to archive in localStorage
+        try {
+          const saved = localStorage.getItem("todayday_archive");
+          const archive = saved ? JSON.parse(saved) : [];
+          const newBatch = { generatedAt: data.generatedAt || new Date().toISOString(), stories: data.stories };
+          // Avoid duplicate batches (same generatedAt)
+          if (!archive.length || archive[0].generatedAt !== newBatch.generatedAt) {
+            const updated = [newBatch, ...archive].slice(0, MAX_ARCHIVE_BATCHES);
+            localStorage.setItem("todayday_archive", JSON.stringify(updated));
+          }
+        } catch {}
       } else {
         throw new Error(data.error || "No stories returned");
       }
@@ -119,6 +133,11 @@ export default function Home() {
         </div>
         <div style={{ fontFamily: "sans-serif", letterSpacing: "0.3em", fontSize: 10, opacity: 0.4, marginBottom: 8 }}>
           ✦ ✦ ✦ ✦ ✦ ✦ ✦ ✦ ✦ ✦ ✦ ✦ ✦ ✦ ✦
+        </div>
+        <div style={{ marginBottom: 8 }}>
+          <Link href="/archive" style={{ fontFamily: "sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#1a1a1a", textDecoration: "none", opacity: 0.5 }}>
+            📂 View Archive →
+          </Link>
         </div>
       </div>
 
