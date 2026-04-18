@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import StoryCard from "@/components/StoryCard";
 import { Story } from "@/lib/states";
 
-const TICKER_ITEMS = [
+const FALLBACK_TICKER = [
   "BREAKING: Local man discovers third arm, unsure what to do with it",
   "UPDATE: Mayoral candidate's dog still refusing to concede election",
   "WEATHER: Vibes remain elevated despite official advisory",
@@ -34,6 +34,7 @@ const LOADING_MESSAGES = [
 
 export default function Home() {
   const [stories, setStories] = useState<Story[]>(FALLBACK_STORIES);
+  const [tickerItems, setTickerItems] = useState<string[]>(FALLBACK_TICKER);
   const [loading, setLoading] = useState(false);
   const [loadingMsg, setLoadingMsg] = useState("");
   const [error, setError] = useState("");
@@ -56,6 +57,7 @@ export default function Home() {
       const data = await res.json();
       if (data.stories && Array.isArray(data.stories)) {
         setStories(data.stories);
+        setTickerItems(data.stories.map((s: Story) => `${s.emoji} ${s.headline.toUpperCase()} · ${s.location}`));
       } else {
         throw new Error(data.error || "No stories returned");
       }
@@ -128,7 +130,7 @@ export default function Home() {
           </div>
           <div style={{ flex: 1, overflow: "hidden" }}>
             <div className="ticker-track" style={{ fontFamily: "sans-serif", fontSize: 12, fontWeight: 500, padding: "0 20px" }}>
-              {TICKER_ITEMS.join("   ·   ")}
+              {tickerItems.join("   ·   ")}
             </div>
           </div>
         </div>
