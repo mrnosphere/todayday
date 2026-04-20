@@ -62,8 +62,10 @@ export const STATE_MAP: Record<string, (typeof US_STATES)[0]> = Object.fromEntri
 const memoryCache: Record<string, { stories: Story[]; generatedAt: string }> = {};
 
 export function getCacheKey(stateAbbr: string): string {
-  const date = new Date().toISOString().split("T")[0];
-  return `${stateAbbr}-${date}`;
+  const now = new Date();
+  const date = now.toISOString().split("T")[0];
+  const hourBucket = Math.floor(now.getUTCHours() / 2) * 2;
+  return `${stateAbbr}-${date}-${hourBucket}h`;
 }
 
 export function getFromCache(key: string) {
@@ -82,4 +84,5 @@ export interface Story {
   emoji: string;
   teaser: string;
   time: string;
+  url?: string;
 }
